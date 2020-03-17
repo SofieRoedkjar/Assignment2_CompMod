@@ -2,7 +2,9 @@
 title: "Computational Modeling - Assignment 2"
 author: "Riccardo Fusaroli"
 date: "29/01/2019"
-output: html_document
+output:   
+  md_document:
+    variant: markdown_github
 ---
 
 ```{r setup, include=FALSE}
@@ -36,14 +38,16 @@ Questions:
 - Then implement a quadratic approximation (hint check paragraph 2.4.2!).
 - N.B. for the rest of the exercise just keep using the grid approximation (we'll move to quadratic approximations in two classes)
 ```{r}
-install.packages(c('coda','mvtnorm'))
-options(repos=c(getOption('repos'),rethinking='http://xcelab.net/R'))
-install.packages('rethinking',type='source')
+#install.packages(c('coda','mvtnorm'))
+#options(repos=c(getOption('repos'),rethinking='http://xcelab.net/R'))
+#install.packages("shape")
+
+#install.packages('rethinking',type='source')
 
 library(rethinking, brms)
 #Define the grid
 #how many options should there be (the more datapoints, the more precise data BUT we don't want infinite)
-dens <- 20
+dens <- 10000
 
 p_grid <- seq(from = 0 , to = 1 , length.out = dens) #creates a list of 20 numbers between 0 and 1
 
@@ -64,6 +68,7 @@ likelihood <- dbinom(3, size = 6, prob = p_grid) #3 == the number he gets correc
 unstd.posterior <- likelihood * prior
 
 #standardize the posterior (so it sums to 1)
+##we want it to sum to 1 because it is easier to interpret AND because all options of a probability distribution should sum to 1
 posterior <- unstd.posterior / sum(unstd.posterior)
 
 #Draw the plot
@@ -103,7 +108,7 @@ precis(riccardo_qa)
 #function to do the stuff above (grid approximation) on all teachers and make the posterior plot
 #make function 
 grid_approx <- function(teacher_correct, teacher_all, teacher_name){
-  dens <- 100
+  dens <- 10000
   p_grid <- seq(from = 0 , to = 1 , length.out = dens) #define grid
   prior1 <- rep(1, dens)
   dens(rbinom(1e4, teacher_all, runif(1e4, 0, 1)))
@@ -112,6 +117,7 @@ grid_approx <- function(teacher_correct, teacher_all, teacher_name){
   posterior <- unstd.posterior / sum(unstd.posterior)
   print(posterior)
   d <- data.frame(grid = p_grid, posterior = posterior, prior = prior1, likelihood = likelihood)
+#Make a plot  
   ggplot(d, aes(grid,posterior)) + 
       geom_point() +
       geom_line() +
@@ -119,15 +125,43 @@ grid_approx <- function(teacher_correct, teacher_all, teacher_name){
       geom_line(aes(grid, prior/dens),color= 'red')+ 
       xlab("Knowledge of CogSci") + 
       ylab("posterior probability")+
-      ggtitle(teacher_name)}
+      ggtitle(teacher_name)
+  return(list(teacher_posterior = posterior, 
+              likelihood = likelihood,
+              prior = prior,
+              grid = p_grid))
+  }
 
-grid_approx(3,6) # Riccardo
-grid_approx(2, 2) #Kristian
-grid_approx(160,198) #Josh
-grid_approx(66,132) #Mikkel
+ric <- grid_approx(3,6, "Riccardo") # Riccardo
+kris <- grid_approx(2, 2, "Kristian") #Kristian
+josh <- grid_approx(160,198, "Josh") #Josh
+mik <- grid_approx(66,132, "Mikkel") #Mikkel
 
 #Looking at the plots, Josh seems to be the most knowlegdeable 
 #Riccardo and Mikkel both have posterior plots that center around 0.5 and that are symmetrical - BUT the standard deviation in Mikkel's plot is much smaller (probably due to the number of questions asked)
+
+#MEAN and SD
+samples_ric <- sample(ric$grid, prob= ric$teacher_posterior , size=1e4 , replace=TRUE ) #Draw samples from the posterior
+mean(samples_ric)
+sd(samples_ric)
+
+samples_kris <- sample(kris$grid, prob= kris$teacher_posterior , size=1e4 , replace=TRUE ) #Draw samples from the posterior
+mean(samples_kris)
+sd(samples_kris)
+
+samples_josh <- sample(josh$grid, prob= josh$teacher_posterior , size=1e4 , replace=TRUE ) #Draw samples from the posterior
+mean(samples_josh)
+sd(samples_josh)
+
+samples_mik <- sample(mik$grid, prob= mik$teacher_posterior , size=1e4 , replace=TRUE ) #Draw samples from the posterior
+mean(samples_mik)
+sd(samples_mik)
+
+#probabilities of josh being smarter than the other teachers
+sum(samples_josh > samples_ric)/10000*100 #count how many times Josh is better than Riccardo and take it as a proprotion of the sample
+sum(samples_josh > samples_kris)/10000*100
+
+sum(samples_josh > samples_mik)/10000*100
 
 ```
 
@@ -136,7 +170,7 @@ grid_approx(66,132) #Mikkel
 3a. Produce plots of the prior and posterior for each teacher.
 ```{r}
 grid_approx1 <- function(teacher_correct, teacher_all, teacher_name){
-  dens <- 100
+  dens <- 10000
   p_grid <- seq(from = 0 , to = 1 , length.out = dens) #define grid
   prior1 <- dnorm(p_grid, 0.8, 0.2) #dnorm because it is normally distributed
   dens(rbinom(1e4, teacher_all, rnorm(1e4, 0.8, 0.2))) #rnorm creates Randomly selected values from the normal distribution
@@ -152,14 +186,38 @@ grid_approx1 <- function(teacher_correct, teacher_all, teacher_name){
       geom_line(aes(grid, prior/dens),color= 'red')+ 
       xlab("Knowledge of CogSci") + 
       ylab("posterior probability")+
-      ggtitle(teacher_name)}
+      ggtitle(teacher_name)
+  return(list(teacher_posterior = posterior, 
+              likelihood = likelihood,
+              prior = prior,
+              grid = p_grid))
+  }
 
-grid_approx1(3,6, "Riccardo") #Riccardo
-grid_approx1(2, 2, "Kristian") #Kristian
-grid_approx1(160,198, "Josh") #Josh
-grid_approx1(66,132, "Mikkel") #Mikkel
+ric <- grid_approx1(3,6, "Riccardo") # Riccardo
+kris <- grid_approx1(2, 2, "Kristian") #Kristian
+josh <- grid_approx1(160,198, "Josh") #Josh
+mik <- grid_approx1(66,132, "Mikkel") #Mikkel
 
 ## the red line is the prior and the black line is the posterior. The black line seems to be less uncertain (less variance) which means that the modle actually learned something from the data! (yay)
+
+#MEAN and SD
+samples_ric <- sample(ric$grid, prob= ric$teacher_posterior , size=1e4 , replace=TRUE ) #Draw samples from the posterior
+mean(samples_ric)
+sd(samples_ric)
+
+samples_kris <- sample(kris$grid, prob= kris$teacher_posterior , size=1e4 , replace=TRUE ) #Draw samples from the posterior
+mean(samples_kris)
+sd(samples_kris)
+
+samples_josh <- sample(josh$grid, prob= josh$teacher_posterior , size=1e4 , replace=TRUE ) #Draw samples from the posterior
+mean(samples_josh)
+sd(samples_josh)
+
+samples_mik <- sample(mik$grid, prob= mik$teacher_posterior , size=1e4 , replace=TRUE ) #Draw samples from the posterior
+mean(samples_mik)
+sd(samples_mik)
+
+
 
 ```
 
@@ -167,18 +225,35 @@ grid_approx1(66,132, "Mikkel") #Mikkel
 4. You go back to your teachers and collect more data (multiply the previous numbers by 100). Calculate their knowledge with both a uniform prior and a normal prior with a mean of 0.8 and a standard deviation of 0.2. Do you still see a difference between the results? Why?
 ```{r}
 #flat prior
-grid_approx(300,600, "Riccardo") #Riccardo
-grid_approx(200, 200, "Kristian") #Kristian
-grid_approx(16000,19800, "Josh") #Josh
-grid_approx(6600,13200, "Mikkel") #Mikkel
+ric <- grid_approx(300,600, "Riccardo") #Riccardo
+kris <- grid_approx(200, 200, "Kristian") #Kristian
+josh <- grid_approx(16000,19800, "Josh") #Josh
+mik <- grid_approx(6600,13200, "Mikkel") #Mikkel
 
 #apply grid_approx with the normal distribution prior with a mea of 0.8 and a sd of 0.2 on all teachers if they have more answers
-grid_approx1(300, 600, "Riccardo") #Riccardo
-grid_approx1(200, 200, "Kristian") #Kristian
-grid_approx1(16000,19800, "Josh") #Josh
-grid_approx1(6600,13200, "Mikkel") #Mikkel
+ric <- grid_approx1(300, 600, "Riccardo") #Riccardo
+kris <- grid_approx1(200, 200, "Kristian") #Kristian
+josh <- grid_approx1(16000,19800, "Josh") #Josh
+mik <- grid_approx1(6600,13200, "Mikkel") #Mikkel
 
 #the flat prior and the normal prior does not seem to change the results much because there is so much data
+
+#MEAN and SD
+samples_ric <- sample(ric$grid, prob= ric$teacher_posterior , size=1e4 , replace=TRUE ) #Draw samples from the posterior
+mean(samples_ric)
+sd(samples_ric)
+
+samples_kris <- sample(kris$grid, prob= kris$teacher_posterior , size=1e4 , replace=TRUE ) #Draw samples from the posterior
+mean(samples_kris)
+sd(samples_kris)
+
+samples_josh <- sample(josh$grid, prob= josh$teacher_posterior , size=1e4 , replace=TRUE ) #Draw samples from the posterior
+mean(samples_josh)
+sd(samples_josh)
+
+samples_mik <- sample(mik$grid, prob= mik$teacher_posterior , size=1e4 , replace=TRUE ) #Draw samples from the posterior
+mean(samples_mik)
+sd(samples_mik)
 ```
 
 
@@ -186,7 +261,7 @@ grid_approx1(6600,13200, "Mikkel") #Mikkel
 ```{r}
 #change the mean and sd of the prior distribution to expect below chance results
 grid_approx2 <- function(teacher_correct, teacher_all, teacher_name){
-  dens <- 100
+  dens <- 10000
   p_grid <- seq(from = 0 , to = 1 , length.out = dens) #define grid
   prior1 <- dnorm(p_grid, 0.2, 0.2) #dnorm because it is normally distributed
   dens(rbinom(1e4, teacher_all, rnorm(1e4, 0.2, 0.2))) #rnorm creates Randomly selected values from the normal distribution
@@ -202,18 +277,40 @@ grid_approx2 <- function(teacher_correct, teacher_all, teacher_name){
       geom_line(aes(grid, prior/dens),color= 'red')+ 
       xlab("Knowledge of CogSci") + 
       ylab("posterior probability")+
-      ggtitle(teacher_name)}
+      ggtitle(teacher_name)
+  return(list(teacher_posterior = posterior, 
+              likelihood = likelihood,
+              prior = prior,
+              grid = p_grid))
+  }
 
-grid_approx2(3, 6, "Riccardo") #Riccardo
-grid_approx2(2, 2, "Kristian") #Kristian
-grid_approx2(160,198, "Josh") #Josh
-grid_approx2(66,132, "Mikkel") #Mikkel
+ric <- grid_approx2(3, 6, "Riccardo") #Riccardo
+kris <- grid_approx2(2, 2, "Kristian") #Kristian
+josh <-grid_approx2(160,198, "Josh") #Josh
+mik <- grid_approx2(66,132, "Mikkel") #Mikkel
 
 # the prior does not matter if there is SO much data!
-grid_approx2(300, 600, "Riccardo") #Riccardo
-grid_approx2(200, 200, "Kristian") #Kristian
-grid_approx2(16000,19800, "Josh") #Josh
-grid_approx2(6600,13200, "Mikkel") #Mikkel
+ric <- grid_approx2(300, 600, "Riccardo") #Riccardo
+kris <- grid_approx2(200, 200, "Kristian") #Kristian
+josh <- grid_approx2(16000,19800, "Josh") #Josh
+mik <- grid_approx2(6600,13200, "Mikkel") #Mikkel
+
+#MEAN and SD
+samples_ric <- sample(ric$grid, prob= ric$teacher_posterior , size=1e4 , replace=TRUE ) #Draw samples from the posterior
+mean(samples_ric)
+sd(samples_ric)
+
+samples_kris <- sample(kris$grid, prob= kris$teacher_posterior , size=1e4 , replace=TRUE ) #Draw samples from the posterior
+mean(samples_kris)
+sd(samples_kris)
+
+samples_josh <- sample(josh$grid, prob= josh$teacher_posterior , size=1e4 , replace=TRUE ) #Draw samples from the posterior
+mean(samples_josh)
+sd(samples_josh)
+
+samples_mik <- sample(mik$grid, prob= mik$teacher_posterior , size=1e4 , replace=TRUE ) #Draw samples from the posterior
+mean(samples_mik)
+sd(samples_mik)
 ```
 
 
@@ -221,67 +318,67 @@ grid_approx2(6600,13200, "Mikkel") #Mikkel
 
 7. Bonus knowledge: all the stuff we have done can be implemented in a lme4-like fashion using the brms package. Here is an example.
 ```{r}
-library(brms)
+#library(brms)
 
-d <- data.frame(
-  Correct=c(3,2,160,66),
-  Questions=c(6,2,198,132),
-  Teacher=c("RF","KT","JS","MW"))
+#d <- data.frame(
+#  Correct=c(3,2,160,66),
+#  Questions=c(6,2,198,132),
+#  Teacher=c("RF","KT","JS","MW"))
 
 # Model sampling only from the prior (for checking the predictions your prior leads to)
-FlatModel_priorCheck <- brm(Correct|trials(Questions) ~ 1, 
-                 data = subset(d, Teacher=="RF"),
-                 prior = prior("uniform(0,1)", class = "Intercept"),
-                 family = binomial,
-                 sample_prior = "only") # here we tell the model to ignore the data
+#FlatModel_priorCheck <- brm(Correct|trials(Questions) ~ 1, 
+#                 data = subset(d, Teacher=="RF"),
+#                 prior = prior("uniform(0,1)", class = "Intercept"),
+#                 family = binomial,
+#                 sample_prior = "only") # here we tell the model to ignore the data
 
 # Plotting the predictions of the model (prior only) against the actual data
-pp_check(FlatModel_priorCheck, nsamples = 100)
+#pp_check(FlatModel_priorCheck, nsamples = 100)
 
 # Model sampling by combining prior and likelihood
-FlatModel <- brm(Correct|trials(Questions) ~ 1, 
-                 data = subset(d, Teacher=="RF"),
-                 prior = prior("uniform(0,1)", class = "Intercept"),
-                 family = binomial,
-                 sample_prior = T)
+#FlatModel <- brm(Correct|trials(Questions) ~ 1, 
+#                 data = subset(d, Teacher=="RF"),
+#                 prior = prior("uniform(0,1)", class = "Intercept"),
+#                 family = binomial,
+#                 sample_prior = T)
 # Plotting the predictions of the model (prior + likelihood) against the actual data
-pp_check(FlatModel, nsamples = 100)
+#pp_check(FlatModel, nsamples = 100)
 
 # plotting the posteriors and the sampling process
-plot(FlatModel)
+#plot(FlatModel)
 
 
-PositiveModel_priorCheck <- brm(Correct|trials(Questions) ~ 1,
-                     data = subset(d, Teacher=="RF"),
-                     prior = prior("normal(0.8,0.2)", 
-                                   class = "Intercept"),
-                     family=binomial,
-                     sample_prior = "only")
-pp_check(PositiveModel_priorCheck, nsamples = 100)
+#PositiveModel_priorCheck <- brm(Correct|trials(Questions) ~ 1,
+#                     data = subset(d, Teacher=="RF"),
+#                     prior = prior("normal(0.8,0.2)", 
+#                                   class = "Intercept"),
+#                     family=binomial,
+#                     sample_prior = "only")
+#pp_check(PositiveModel_priorCheck, nsamples = 100)
 
-PositiveModel <- brm(Correct|trials(Questions) ~ 1,
-                     data = subset(d, Teacher=="RF"),
-                     prior = prior("normal(0.8,0.2)", 
-                                   class = "Intercept"),
-                     family=binomial,
-                     sample_prior = T)
-pp_check(PositiveModel, nsamples = 100)
-plot(PositiveModel)
+#PositiveModel <- brm(Correct|trials(Questions) ~ 1,
+#                     data = subset(d, Teacher=="RF"),
+#                     prior = prior("normal(0.8,0.2)", 
+#                                   class = "Intercept"),
+#                     family=binomial,
+#                     sample_prior = T)
+#pp_check(PositiveModel, nsamples = 100)
+#plot(PositiveModel)
 
-SkepticalModel_priorCheck <- brm(Correct|trials(Questions) ~ 1, 
-                      data = subset(d, Teacher=="RF"),
-                      prior=prior("normal(0.5,0.01)", class = "Intercept"),
-                      family=binomial,
-                      sample_prior = "only")
-pp_check(SkepticalModel_priorCheck, nsamples = 100)
+#SkepticalModel_priorCheck <- brm(Correct|trials(Questions) ~ 1, 
+#                      data = subset(d, Teacher=="RF"),
+#                      prior=prior("normal(0.5,0.01)", class = "Intercept"),
+#                      family=binomial,
+#                      sample_prior = "only")
+#pp_check(SkepticalModel_priorCheck, nsamples = 100)
 
-SkepticalModel <- brm(Correct|trials(Questions) ~ 1, 
-                      data = subset(d, Teacher=="RF"),
-                      prior = prior("normal(0.5,0.01)", class = "Intercept"),
-                      family = binomial,
-                      sample_prior = T)
-pp_check(SkepticalModel, nsamples = 100)
-plot(SkepticalModel)
+#SkepticalModel <- brm(Correct|trials(Questions) ~ 1, 
+#                      data = subset(d, Teacher=="RF"),
+#                      prior = prior("normal(0.5,0.01)", class = "Intercept"),
+#                      family = binomial,
+#                      sample_prior = T)
+#pp_check(SkepticalModel, nsamples = 100)
+#plot(SkepticalModel)
 ```
 
 If you dare, try to tweak the data and model to test two hypotheses:
@@ -314,4 +411,95 @@ Guidance Tips
 2. Last year's results are this year's expectations.
 3. Are the parameter estimates changing? (way 1)
 4. How does the new data look in last year's predictive posterior? (way 2)
+```{r}
+#pacman::p_load(tidyverse, tidyr)
+prior <- dnorm(p_grid, 0.8, 0.2) #dnorm because it is normally distributed, mean 0.8 and sd 0.2
+
+#New function for the new data
+calc_teacher <- function(n_correct, n_question, prior, length_out = 10000){
+  # this function calculate the posterior
+  p_grid <- seq(from =0, to = 1, length.out = length_out)
+  likelihood <- dbinom(n_correct, 
+                       size = n_question, 
+                       prob = p_grid)
+  unstd_posterior <- prior * likelihood
+  bin_size <- abs(p_grid[1] - p_grid[2])
+  posterior <- unstd_posterior/sum(unstd_posterior * bin_size)
+  return(list(teacher_posterior = posterior, 
+              likelihood = likelihood,
+              prior = prior,
+              grid = p_grid))
+}
+
+riccardo19 <- calc_teacher(3, 6, prior, length_out = 10000)
+kristian19 <- calc_teacher(2, 2, prior, length_out = 10000)
+josh19 <- calc_teacher(160, 198, prior, length_out = 10000)
+mikkel19 <- calc_teacher(66, 132, prior, length_out = 10000)
+
+
+#use former posteriors as new priors
+riccardo20 <- calc_teacher(9, 10, prior = riccardo19$teacher_posterior, length_out = 10000)
+kristian20 <- calc_teacher(8, 12, prior = kristian19$teacher_posterior, length_out = 10000)
+josh20 <- calc_teacher(148, 172, prior = josh19$teacher_posterior, length_out = 10000)
+mikkel20 <- calc_teacher(34, 65, prior = mikkel19$teacher_posterior, length_out = 10000)
+
+#Make pretty plots
+pretty_plot <- function(p_grid, prior, likelihood, posterior, title = " "){
+  # define data
+  d <- tibble(p_grid = p_grid, 
+              prior = prior, 
+              likelihood = likelihood,
+              posterior = posterior)
+  
+  # make to long format
+  d <- d %>% 
+    pivot_longer(cols = c("prior", "likelihood", "posterior"), names_to = "name", values_to = "value")
+  
+  # make a 
+  p <- ggplot(d, aes(x = p_grid, y = value, color = name)) + 
+    geom_line() + 
+    labs(x = "x", y = "Density", title = title) + 
+    theme_bw() + 
+    ggplot2::theme(panel.background = element_rect(fill = "yellow"),
+                   panel.border = element_blank()) +
+    scale_colour_brewer(palette = "Dark2", direction = 1)
+  return(p)
+}
+
+
+#make plots
+
+riccardo_plot <- pretty_plot(p_grid = riccardo20$grid, prior = riccardo20$prior, likelihood =  riccardo20$likelihood, posterior = riccardo20$teacher_posterior, title = "Riccardo")
+
+kristian_plot <- pretty_plot(p_grid = kristian20$grid, prior = kristian20$prior, likelihood = kristian20$likelihood, posterior = kristian20$teacher_posterior, title = "Kristian")
+
+josh_plot <- pretty_plot(p_grid = josh20$grid, prior = josh20$prior, likelihood = josh20$likelihood, posterior = josh20$teacher_posterior, title = "Josh")
+
+mikkel_plot <- pretty_plot(p_grid = mikkel20$grid, prior = mikkel20$prior, likelihood = mikkel20$likelihood, posterior = mikkel20$teacher_posterior, title = "Mikkel")
+
+
+#Plotting predictive posteriors from 2019
+
+#Riccardo - actual 9/10
+samples <- sample(riccardo19$grid, prob= riccardo19$teacher_posterior , size=1e4 , replace=TRUE ) #Draw samples from the posterior
+w <- rbinom(1e4 , size=10 , prob=samples ) #make a distribution of the samples with the probability of the posterior data (weigh it like the weight of the the posterior)
+simplehist(w) #draw density plot
+
+#Kristian - actual 8-12
+samples <- sample(kristian19$grid, prob= kristian19$teacher_posterior , size=1e4 , replace=TRUE ) 
+w <- rbinom(1e4 , size=12 , prob=samples )
+simplehist(w) #draw density plot
+
+#Josh - actual 148/172
+samples <- sample(josh19$grid, prob= josh19$teacher_posterior , size=1e4 , replace=TRUE ) 
+w <- rbinom(1e4 , size=172 , prob=samples )
+simplehist(w) #draw density plot
+
+#Mikkel - actual 34/65
+samples <- sample(mikkel19$grid, prob= mikkel19$teacher_posterior , size=1e4 , replace=TRUE ) 
+w <- rbinom(1e4 , size=75 , prob=samples )
+simplehist(w) #draw density plot
+
+
+```
 
